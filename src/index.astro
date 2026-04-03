@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Paytm for Business – Live</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+        * { font-family: 'DM Sans', sans-serif; }
+        .paytm-blue { color: #002970; }
+        .bg-paytm-blue { background-color: #002970; }
+        .bg-paytm-sky { background-color: #00BAF2; }
+        .pulse-live {
+            animation: pulse-ring 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse-ring {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.7); }
+            50% { box-shadow: 0 0 0 30px rgba(34,197,94,0); }
+        }
+        .live-dot { animation: blink 1s step-end infinite; }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    </style>
+</head>
+<body class="bg-paytm-blue h-screen flex items-center justify-center overflow-hidden relative">
+    <!-- Subtle background accent -->
+    <div class="absolute inset-0 bg-[radial-gradient(at_center,#00BAF2_0%,transparent_70%)] opacity-10 pointer-events-none"></div>
+
+    <div class="text-center z-10">
+        <!-- Paytm Logo (kept from original design) -->
+        <div class="flex items-center justify-center gap-3 mb-12">
+            <div class="w-14 h-14 bg-paytm-sky rounded-2xl flex items-center justify-center shadow-inner">
+                <span class="text-white font-bold text-4xl">P</span>
+            </div>
+            <div>
+                <p class="text-white text-5xl font-bold tracking-tighter">Paytm</p>
+                <p class="text-paytm-sky text-base -mt-1">for Business</p>
+            </div>
+        </div>
+
+        <!-- THE ONLY BUTTON IN THE MIDDLE -->
+        <button 
+            id="live-transaction"
+            class="pulse-live flex items-center gap-6 bg-green-500 hover:bg-green-600 text-white text-4xl font-bold px-20 py-8 rounded-3xl transition-all active:scale-95 shadow-2xl"
+        >
+            <span class="w-6 h-6 rounded-full bg-white live-dot"></span>
+            LIVE TRANSACTIONS
+            <span class="w-6 h-6 rounded-full bg-white live-dot"></span>
+        </button>
+
+        <p class="text-blue-200 mt-8 text-sm tracking-widest font-medium">REAL-TIME • SECURE • INSTANT</p>
+    </div>
+</body>
+</html>

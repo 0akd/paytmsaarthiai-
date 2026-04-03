@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Object Detector</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        --bg:        #ffffff;
+        --surface:   #f8fafc;
+        --border:    #e2e8f0;
+        --border2:   #cbd5e1;
+        --accent:    #00c58a;
+        --accent2:   #0077ff;
+        --danger:    #ef4444;
+        --text:      #0f172a;
+        --muted:     #64748b;
+        --mono:      'Space Mono', monospace;
+        --sans:      'DM Sans', sans-serif;
+      }
+
+      html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); }
+
+      /* ── SCANLINE OVERLAY ── */
+      body::before {
+        content: '';
+        position: fixed; inset: 0; z-index: 9999; pointer-events: none;
+        background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.03) 2px, rgba(0,0,0,.03) 4px);
+      }
+
+      .app {
+        min-height: 100vh;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      /* ── HEADER ── */
+      header {
+        padding: 28px 0 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .logo {
+        display: flex; align-items: center; gap: 12px;
+      }
+
+      .logo-icon {
+        width: 36px; height: 36px;
+        background: linear-gradient(135deg, var(--accent), var(--accent2));
+        border-radius: 8px;
+        display: grid; place-items: center;
+      }
+
+      .logo-icon svg { width: 20px; height: 20px; fill: #ffffff; }
+
+      .logo-text {
+        font-family: var(--mono);
+        font-size: 13px;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--text);
+      }
+
+      .logo-text span { color: var(--accent); }
+
+      .header-status {
+        display: flex; align-items: center; gap: 8px;
+        font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+        color: var(--muted); text-transform: uppercase;
+      }
+
+      .dot {
+        width: 7px; height: 7px; border-radius: 50%;
+        background: var(--muted);
+        transition: background .3s;
+      }
+      .dot.live { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse 2s infinite; }
+      @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+      /* ── MAIN GRID ── */
+      .main-grid {
+        display: grid;
+        grid-template-columns: 1fr 320px;
+        gap: 20px;
+        padding: 24px 0;
+        align-items: start;
+      }
+
+      @media (max-width: 860px) {
+        .main-grid { grid-template-columns: 1fr; }
+      }
+
+      /* ── VIDEO PANEL ── */
+      .video-panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .video-wrapper {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 4/3;
+        background: #000;
+        overflow: hidden;
+      }
+
+      #webcam {
+        width: 100%; height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      #canvas {
+        position: absolute; inset: 0;
+        width: 100%; height: 100%;
+        pointer-events: none;
+      }
+
+      /* corner brackets */
+      .corner { position: absolute; width: 20px; height: 20px; }
+      .corner--tl { top: 12px; left: 12px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+      .corner--tr { top: 12px; right: 12px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+      .corner--bl { bottom: 12px; left: 12px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+      .corner--br { bottom: 12px; right: 12px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+
+      .video-placeholder {
+        position: absolute; inset: 0;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 12px; color: rgba(255, 255, 255, 0.5); /* Adjusted for black video background */
+        font-family: var(--mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase;
+      }
+
+      .video-placeholder svg { opacity: .5; }
+
+      .video-bar {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 12px 16px;
+        border-top: 1px solid var(--border);
+      }
+
+      #status-text {
+        font-family: var(--mono); font-size: 12px; letter-spacing: .06em;
+        color: var(--muted);
+        transition: color .3s;
+      }
+
+      #status-text.active { color: var(--accent); }
+
+      .controls { display: flex; gap: 10px; }
+
+      .btn {
+        font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+        padding: 9px 18px; border-radius: 8px; border: 1px solid transparent;
+        cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 8px;
+      }
+
+      .btn-start {
+        background: var(--accent); color: #ffffff; border-color: var(--accent);
+        font-weight: 700;
+      }
+      .btn-start:hover { background: #00e5a0; box-shadow: 0 0 20px rgba(0,229,160,.35); }
+
+      .btn-stop {
+        background: transparent; color: var(--danger); border-color: var(--danger);
+      }
+      .btn-stop:hover { background: rgba(239, 68, 68, 0.1); }
+
+      .hidden { display: none !important; }
+
+      /* ── SIDE PANEL ── */
+      .side-panel { display: flex; flex-direction: column; gap: 16px; }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        overflow: hidden;
+      }
+
+      .card-header {
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border);
+        display: flex; align-items: center; justify-content: space-between;
+      }
+
+      .card-title {
+        font-family: var(--mono); font-size: 10px; letter-spacing: .15em;
+        text-transform: uppercase; color: var(--muted);
+      }
+
+      /* ── STATS ROW ── */
+      .stats-row {
+        display: grid; grid-template-columns: 1fr 1fr;
+      }
+
+      .stat {
+        padding: 18px;
+        border-right: 1px solid var(--border);
+      }
+      .stat:last-child { border-right: none; }
+
+      .stat-value {
+        font-family: var(--mono); font-size: 28px; font-weight: 700;
+        color: var(--accent); line-height: 1;
+        transition: all .3s;
+      }
+
+      .stat-label {
+        font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: .06em;
+      }
+
+      /* ── TALLY ── */
+      .tally-body { padding: 10px; max-height: 160px; overflow-y: auto; }
+      .tally-body::-webkit-scrollbar { width: 3px; }
+      .tally-body::-webkit-scrollbar-track { background: transparent; }
+      .tally-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
+
+      #active-items { display: flex; flex-direction: column; gap: 4px; }
+
+      .item-pill {
+        display: flex; align-items: center; gap: 8px;
+        padding: 7px 10px; border-radius: 8px;
+        background: rgba(0, 0, 0, 0.04); /* Adjusted for light background */
+        border: 1px solid var(--border);
+        font-size: 13px;
+        transition: all .2s;
+        animation: slideIn .25s ease;
+      }
+
+      @keyframes slideIn { from { opacity:0; transform: translateX(-8px); } to { opacity:1; transform:none; } }
+
+      .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+      .pill-name { flex: 1; color: var(--text); font-weight: 500; }
+      .pill-count { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+      .pill-price { font-family: var(--mono); font-size: 12px; color: var(--accent2); margin-left: auto; font-weight: 600; }
+
+      .tally-empty { text-align: center; padding: 24px; color: var(--muted); font-size: 12px; font-family: var(--mono); }
+
+      /* ── LOG ── */
+      .log-body { max-height: 260px; overflow-y: auto; }
+      .log-body::-webkit-scrollbar { width: 3px; }
+      .log-body::-webkit-scrollbar-track { background: transparent; }
+      .log-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
+
+      #log { display: flex; flex-direction: column; }
+
+      .log-entry {
+        display: grid; grid-template-columns: 24px 1fr auto;
+        align-items: center; gap: 8px;
+        padding: 9px 14px;
+        border-bottom: 1px solid var(--border);
+        font-size: 12px;
+        animation: fadeIn .2s ease;
+      }
+
+      @keyframes fadeIn { from { opacity:0; background: rgba(0,197,138,.05); } to { opacity:1; } }
+
+      .log-entry:last-child { border-bottom: none; }
+      .log-icon { font-size: 14px; }
+      .log-text { color: var(--text); }
+      .log-text b { color: var(--accent); font-weight: 600; }
+      .log-price { color: var(--accent2); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+      .log-time { font-family: var(--mono); font-size: 10px; color: var(--muted); white-space: nowrap; }
+
+      #log-empty { text-align: center; padding: 28px; color: var(--muted); font-family: var(--mono); font-size: 11px; }
+
+      /* ── FOOTER ── */
+      footer {
+        padding: 16px 0;
+        border-top: 1px solid var(--border);
+        display: flex; align-items: center; justify-content: center; gap: 6px;
+        font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+        color: var(--muted); text-transform: uppercase;
+      }
+
+      footer span { color: var(--border2); }
+    </style>
+  </head>
+
+  <body>
+    <div class="app">
+
+      <header>
+        <div class="logo">
+          <div class="logo-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          </div>
+          <div class="logo-text">Transaction<span>.</span>DETECT</div>
+        </div>
+        <div class="header-status">
+          <div class="dot" id="live-dot"></div>
+          <span id="live-label">Offline</span>
+        </div>
+      </header>
+
+      <div class="main-grid">
+
+        <div class="video-panel">
+          <div class="video-wrapper">
+            <video id="webcam" autoplay playsinline muted></video>
+            <canvas id="canvas"></canvas>
+
+            <div class="corner corner--tl"></div>
+            <div class="corner corner--tr"></div>
+            <div class="corner corner--bl"></div>
+            <div class="corner corner--br"></div>
+
+            <div class="video-placeholder" id="placeholder">
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+              </svg>
+              <div>Camera feed</div>
+            </div>
+          </div>
+
+          <div class="video-bar">
+            <span id="status-text">Ready</span>
+            <div class="controls">
+              <button class="btn btn-start" id="startBtn">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>
+                Start
+              </button>
+              <button class="btn btn-stop hidden" id="stopBtn">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+                Stop
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="side-panel">
+
+          <div class="card">
+            <div class="stats-row">
+              <div class="stat">
+                <div class="stat-value" id="sold-count">0</div>
+                <div class="stat-label">Detected</div>
+              </div>
+              <div class="stat">
+                <div class="stat-value" id="total-revenue">₹0</div>
+                <div class="stat-label">Revenue</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Active Items</span>
+            </div>
+            <div class="tally-body">
+              <div id="active-items">
+                <div class="tally-empty" id="tally-empty">No items detected</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Detection Log</span>
+            </div>
+            <div class="log-body">
+              <div id="log">
+                <div class="tally-empty" id="log-empty">Awaiting detections…</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <footer>
+        TensorFlow.js <span>·</span> COCO-SSD <span>·</span> Astro
+      </footer>
+    </div>
+
+    <script>
+      import { startDetection, stopDetection } from '../scripts/object-detection.js';
+
+      const startBtn   = document.getElementById('startBtn');
+      const stopBtn    = document.getElementById('stopBtn');
+      const statusEl   = document.getElementById('status-text');
+      const liveDot    = document.getElementById('live-dot');
+      const liveLabel  = document.getElementById('live-label');
+      const placeholder = document.getElementById('placeholder');
+
+      function setLive(on) {
+        liveDot.classList.toggle('live', on);
+        liveLabel.textContent = on ? 'Live' : 'Offline';
+        statusEl.classList.toggle('active', on);
+        if (placeholder) placeholder.style.display = on ? 'none' : 'flex';
+      }
+
+      startBtn.addEventListener('click', async () => {
+        startBtn.classList.add('hidden');
+        statusEl.textContent = 'Initialising…';
+        try {
+          await startDetection({ onStatus: t => { statusEl.textContent = t; } });
+          stopBtn.classList.remove('hidden');
+          setLive(true);
+        } catch (e) {
+          statusEl.textContent = `❌ ${e.message}`;
+          startBtn.classList.remove('hidden');
+        }
+      });
+
+      stopBtn.addEventListener('click', () => {
+        stopDetection();
+        stopBtn.classList.add('hidden');
+        startBtn.classList.remove('hidden');
+        statusEl.textContent = 'Stopped';
+        setLive(false);
+      });
+    </script>
+  </body>
+</html>
