@@ -1,0 +1,293 @@
+---
+// AlertsDashboard.astro
+// Paytm Saarthi — Smart Alerts Dashboard
+// Fetches live alerts from the Python backend and renders them.
+---
+
+<div id="alerts-dashboard">
+  <div class="header">
+    <div>
+      <h2>Smart alerts</h2>
+      <p class="subtitle">Auto-monitoring your business 24/7</p>
+    </div>
+    <div class="live-badge">● Live</div>
+  </div>
+
+  <!-- Metric summary cards -->
+  <div class="metrics-grid" id="metrics-grid">
+    <div class="metric-card">
+      <div class="metric-label">Today's alerts</div>
+      <div class="metric-value" id="total-alerts">—</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Critical</div>
+      <div class="metric-value critical" id="critical-count">—</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Active rules</div>
+      <div class="metric-value" id="rules-count">—</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Last checked</div>
+      <div class="metric-value small" id="last-checked">—</div>
+    </div>
+  </div>
+
+  <!-- Alert list -->
+  <div class="section-label">Recent notifications</div>
+  <div id="alerts-list" class="alerts-list">
+    <div class="loading">Loading alerts...</div>
+  </div>
+
+  <!-- Simulate / test panel -->
+  <div class="section-label" style="margin-top:1.5rem;">Test an alert</div>
+  <div class="test-panel">
+    <select id="test-scenario">
+      <option value="stock">Low stock — 3 units left</option>
+      <option value="sales">Sales dropped 25%</option>
+      <option value="payments">3 UPI failures</option>
+      <option value="margin">Margin fell to 7%</option>
+    </select>
+    <button id="test-btn">Fire test alert</button>
+    <div id="test-result"></div>
+  </div>
+</div>
+
+<style>
+  #alerts-dashboard {
+    font-family: system-ui, sans-serif;
+    max-width: 700px;
+    padding: 1.5rem;
+  }
+
+  .header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+  }
+  h2 { font-size: 1.25rem; font-weight: 600; margin: 0 0 4px; }
+  .subtitle { font-size: 0.85rem; color: #666; margin: 0; }
+
+  .live-badge {
+    font-size: 0.75rem;
+    background: #e8f5e9;
+    color: #2e7d32;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  .section-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+  }
+
+  /* Metrics */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 1.5rem;
+  }
+  .metric-card {
+    background: #f5f5f5;
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .metric-label { font-size: 0.75rem; color: #666; margin-bottom: 4px; }
+  .metric-value { font-size: 1.4rem; font-weight: 600; }
+  .metric-value.critical { color: #c62828; }
+  .metric-value.small { font-size: 0.85rem; padding-top: 4px; }
+
+  /* Alerts */
+  .alerts-list { display: flex; flex-direction: column; gap: 10px; }
+  .loading { color: #aaa; font-size: 0.9rem; padding: 1rem 0; }
+
+  .alert-card {
+    background: #fff;
+    border: 1px solid #eee;
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .alert-icon {
+    font-size: 1.4rem;
+    width: 36px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .alert-body { flex: 1; }
+  .alert-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+  }
+  .alert-title { font-size: 0.9rem; font-weight: 600; }
+  .priority-tag {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+  .priority-critical { background: #ffebee; color: #c62828; }
+  .priority-high     { background: #fff3e0; color: #e65100; }
+  .priority-medium   { background: #e3f2fd; color: #1565c0; }
+  .priority-low      { background: #e8f5e9; color: #2e7d32; }
+
+  .alert-message { font-size: 0.85rem; color: #555; line-height: 1.5; }
+  .alert-meta    { font-size: 0.75rem; color: #aaa; margin-top: 4px; }
+  .channels-row  { display: flex; gap: 4px; margin-top: 6px; }
+  .channel-chip  {
+    font-size: 0.7rem;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: #f0f0f0;
+    color: #555;
+  }
+
+  /* Test panel */
+  .test-panel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    background: #f9f9f9;
+    border-radius: 10px;
+    padding: 14px;
+  }
+  select, button {
+    font-size: 0.85rem;
+    padding: 7px 12px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    background: #fff;
+    cursor: pointer;
+  }
+  button { background: #00baf2; color: #fff; border-color: #00baf2; font-weight: 500; }
+  button:hover { background: #009fd4; }
+  #test-result { font-size: 0.8rem; width: 100%; margin-top: 4px; }
+</style>
+
+<script>
+  const API = "http://localhost:8000";
+
+  // Icon and colour mapping
+  const ICONS = {
+    low_stock:        "📦",
+    sales_drop:       "📉",
+    payment_failures: "💳",
+    low_margin:       "⚠️",
+  };
+
+  const SCENARIOS = {
+    stock:    { stock_quantity: 3 },
+    sales:    { sales_change_pct: -25 },
+    payments: { failed_payments_count: 4 },
+    margin:   { profit_margin_pct: 7 },
+  };
+
+  // ── Fetch & render helpers ──────────────────────────────────────────
+
+  async function fetchAlerts() {
+    const res  = await fetch(`${API}/alerts`);
+    const data = await res.json();
+    return data.alerts || [];
+  }
+
+  async function fetchRulesCount() {
+    const res  = await fetch(`${API}/rules`);
+    const data = await res.json();
+    return data.rules?.length || 0;
+  }
+
+  function renderAlert(alert) {
+    const metricKey = alert.metric?.split("_")[0] + "_" + alert.metric?.split("_")[1];
+    const icon      = ICONS[alert.id?.split("_")[0] + "_" + alert.id?.split("_")[1]] || "🔔";
+    const tag       = `<span class="priority-tag priority-${alert.priority}">${alert.priority}</span>`;
+    const channels  = (alert.channels || [])
+      .map(c => `<span class="channel-chip">${c}</span>`)
+      .join("");
+    const time = new Date(alert.fired_at).toLocaleTimeString("en-IN", {
+      hour: "2-digit", minute: "2-digit"
+    });
+
+    return `
+      <div class="alert-card">
+        <div class="alert-icon">${icon}</div>
+        <div class="alert-body">
+          <div class="alert-title-row">
+            <span class="alert-title">${alert.title}</span>
+            ${tag}
+          </div>
+          <div class="alert-message">${alert.message}</div>
+          <div class="alert-meta">${time} · ${alert.metric} = ${alert.value}</div>
+          <div class="channels-row">${channels}</div>
+        </div>
+      </div>`;
+  }
+
+  async function refreshDashboard() {
+    const [alerts, rulesCount] = await Promise.all([fetchAlerts(), fetchRulesCount()]);
+
+    document.getElementById("total-alerts").textContent   = alerts.length;
+    document.getElementById("critical-count").textContent =
+      alerts.filter(a => a.priority === "critical").length;
+    document.getElementById("rules-count").textContent    = rulesCount;
+    document.getElementById("last-checked").textContent   =
+      new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+
+    const list = document.getElementById("alerts-list");
+    if (alerts.length === 0) {
+      list.innerHTML = '<div class="loading">No alerts fired yet.</div>';
+    } else {
+      list.innerHTML = [...alerts].reverse().map(renderAlert).join("");
+    }
+  }
+
+  // ── Test alert button ───────────────────────────────────────────────
+
+  document.getElementById("test-btn").addEventListener("click", async () => {
+    const scenario = document.getElementById("test-scenario").value;
+    const metrics  = SCENARIOS[scenario];
+    const result   = document.getElementById("test-result");
+
+    result.textContent = "Firing…";
+
+    try {
+      const res  = await fetch(`${API}/alerts/evaluate`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ shop_id: "demo_shop", ...metrics }),
+      });
+      const data = await res.json();
+
+      result.style.color = "#2e7d32";
+      result.textContent = data.alerts_fired > 0
+        ? `✓ ${data.alerts_fired} alert(s) fired successfully!`
+        : "ℹ No alert fired — metric did not breach the threshold.";
+
+      await refreshDashboard();
+
+      // Reset engine so same scenario can fire again during demos
+      await fetch(`${API}/alerts/reset`, { method: "POST" });
+
+    } catch (err) {
+      result.style.color = "#c62828";
+      result.textContent = "✗ Could not reach backend. Is the server running?";
+    }
+  });
+
+  // ── Init ────────────────────────────────────────────────────────────
+  refreshDashboard();
+  // Auto-refresh every 60 seconds
+  setInterval(refreshDashboard, 60_000);
+</script>
